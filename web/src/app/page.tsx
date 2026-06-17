@@ -1,8 +1,10 @@
 'use client';
 import { useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { supabase } from '@/lib/supabaseClient';
 
 export default function Home() {
+  const router = useRouter();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
@@ -12,7 +14,7 @@ export default function Home() {
     setLoading(true);
     const { error } = await supabase.auth.signInWithPassword({ email, password });
     if (error) alert(error.message);
-    else window.location.href = '/dashboard';
+    else router.push('/dashboard');
     setLoading(false);
   };
 

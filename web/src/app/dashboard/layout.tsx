@@ -1,18 +1,20 @@
 'use client';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import { supabase } from '@/lib/supabaseClient';
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
+  const router = useRouter();
   const [loading, setLoading] = useState(true);
   const [isWhitelisted, setIsWhitelisted] = useState(false);
 
   useEffect(() => {
     async function checkWhitelist() {
       const { data: { user } } = await supabase.auth.getUser();
-      
+
       if (!user) {
-        window.location.href = '/';
+        router.push('/');
         return;
       }
 
@@ -43,7 +45,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
           You are not currently on the whitelist.<br />
           Please email <a href="mailto:aryan.malik@rutgers.edu" style={{ color: 'var(--primary)' }}>aryan.malik@rutgers.edu</a> for agent access.
         </p>
-        <button className="btn mt-4" onClick={() => supabase.auth.signOut().then(() => window.location.href = '/')}>Sign Out</button>
+        <button className="btn mt-4" onClick={() => supabase.auth.signOut().then(() => router.push('/'))}>Sign Out</button>
       </div>
     );
   }
