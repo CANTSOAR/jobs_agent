@@ -5,11 +5,19 @@ from urllib.parse import urljoin, urlsplit
 import httpx
 from bs4 import BeautifulSoup
 
-USER_AGENT = "Mozilla/5.0 (compatible; JobsAgent/1.0)"
+# Several career sites 403 a self-identifying bot string outright. A realistic
+# browser UA + Accept headers gets past basic WAF checks (though not Cloudflare-style
+# JS challenges, which no header change can bypass without a real browser).
+REQUEST_HEADERS = {
+    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
+                  "(KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
+    "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8",
+    "Accept-Language": "en-US,en;q=0.9",
+}
 
 
 def fetch_html(url: str) -> str:
-    response = httpx.get(url, headers={"User-Agent": USER_AGENT}, timeout=20, follow_redirects=True)
+    response = httpx.get(url, headers=REQUEST_HEADERS, timeout=20, follow_redirects=True)
     response.raise_for_status()
     return response.text
 
