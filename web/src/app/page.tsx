@@ -1,5 +1,5 @@
 'use client';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { supabase } from '@/lib/supabaseClient';
 
@@ -10,6 +10,22 @@ export default function Home() {
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
 
+  // Supabase confirmation links (email confirm, magic link, etc.) redirect back here
+  // with the session in the URL hash. supabase-js parses that hash automatically and
+  // fires onAuthStateChange — without this, the user would land here logged in but
+  // stuck looking at an empty login form.
+  useEffect(() => {
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      if (session) router.push('/dashboard');
+    });
+
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      if (session) router.push('/dashboard');
+    });
+
+    return () => subscription.unsubscribe();
+  }, [router]);
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
@@ -19,7 +35,14 @@ export default function Home() {
       if (error) alert(error.message);
       else router.push('/dashboard');
     } else {
-      const { data, error } = await supabase.auth.signUp({ email, password });
+      const { data, error } = await supabase.auth.signUp({
+        email,
+        password,
+        // Redirect back to wherever this is actually running (localhost in dev,
+        // the GitHub Pages basePath in prod) instead of whatever fixed Site URL
+        // is configured in the Supabase dashboard.
+        options: { emailRedirectTo: `${window.location.origin}${window.location.pathname}` },
+      });
       if (error) {
         alert(error.message);
       } else if (data.session) {
