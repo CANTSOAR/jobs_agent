@@ -1,6 +1,6 @@
 import hashlib
 from typing import Optional
-from urllib.parse import urljoin
+from urllib.parse import urljoin, urlsplit
 
 import httpx
 from bs4 import BeautifulSoup
@@ -26,7 +26,10 @@ def extract_favicon_url(html: str, base_url: str) -> Optional[str]:
 def extract_linkedin_company_url(html: str) -> Optional[str]:
     soup = BeautifulSoup(html, "html.parser")
     link = soup.find("a", href=lambda href: href and "linkedin.com/company" in href)
-    return link["href"] if link else None
+    if not link:
+        return None
+    parts = urlsplit(link["href"].strip())
+    return f"{parts.scheme}://{parts.netloc}{parts.path}"
 
 
 def extract_visible_text(html: str) -> str:
