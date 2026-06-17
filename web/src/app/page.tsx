@@ -5,52 +5,83 @@ import { supabase } from '@/lib/supabaseClient';
 
 export default function Home() {
   const router = useRouter();
+  const [mode, setMode] = useState<'signin' | 'signup'>('signin');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
 
-  const handleLogin = async (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
-    const { error } = await supabase.auth.signInWithPassword({ email, password });
-    if (error) alert(error.message);
-    else router.push('/dashboard');
+
+    if (mode === 'signin') {
+      const { error } = await supabase.auth.signInWithPassword({ email, password });
+      if (error) alert(error.message);
+      else router.push('/dashboard');
+    } else {
+      const { data, error } = await supabase.auth.signUp({ email, password });
+      if (error) {
+        alert(error.message);
+      } else if (data.session) {
+        router.push('/dashboard');
+      } else {
+        alert('Account created — check your email to confirm it, then sign in.');
+        setMode('signin');
+      }
+    }
+
     setLoading(false);
   };
 
   return (
     <main className="container flex-center" style={{ minHeight: '100vh' }}>
       <div className="card" style={{ maxWidth: '400px', width: '100%' }}>
-        <h1 className="title text-gradient" style={{ textAlign: 'center', fontSize: '2.5rem' }}>Agent Login</h1>
-        <p className="subtitle" style={{ textAlign: 'center' }}>Enter your credentials to continue</p>
-        
-        <form onSubmit={handleLogin} className="grid">
+        <h1 className="title text-gradient" style={{ textAlign: 'center', fontSize: '2.5rem' }}>
+          {mode === 'signin' ? 'Agent Login' : 'Create Account'}
+        </h1>
+        <p className="subtitle" style={{ textAlign: 'center' }}>
+          {mode === 'signin' ? 'Enter your credentials to continue' : 'Sign up, then wait to be whitelisted'}
+        </p>
+
+        <form onSubmit={handleSubmit} className="grid">
           <div className="input-group">
             <label>Email</label>
-            <input 
-              type="email" 
-              className="input-field" 
-              value={email} 
-              onChange={e => setEmail(e.target.value)} 
-              required 
+            <input
+              type="email"
+              className="input-field"
+              value={email}
+              onChange={e => setEmail(e.target.value)}
+              required
             />
           </div>
-          
+
           <div className="input-group">
             <label>Password</label>
-            <input 
-              type="password" 
-              className="input-field" 
-              value={password} 
-              onChange={e => setPassword(e.target.value)} 
-              required 
+            <input
+              type="password"
+              className="input-field"
+              value={password}
+              onChange={e => setPassword(e.target.value)}
+              required
             />
           </div>
-          
+
           <button type="submit" className="btn" disabled={loading}>
-            {loading ? 'Authenticating...' : 'Sign In'}
+            {loading ? 'Please wait...' : mode === 'signin' ? 'Sign In' : 'Sign Up'}
           </button>
         </form>
+
+        <p className="subtitle" style={{ textAlign: 'center', fontSize: '0.9rem', marginTop: '1.5rem', marginBottom: 0 }}>
+          {mode === 'signin' ? (
+            <>Don&apos;t have an account?{' '}
+              <button type="button" className="link-btn" onClick={() => setMode('signup')}>Sign up</button>
+            </>
+          ) : (
+            <>Already have an account?{' '}
+              <button type="button" className="link-btn" onClick={() => setMode('signin')}>Sign in</button>
+            </>
+          )}
+        </p>
       </div>
     </main>
   );
