@@ -1,3 +1,4 @@
 .env
 whitelist_manager.ipynb
 node_modules
+companies.csv
