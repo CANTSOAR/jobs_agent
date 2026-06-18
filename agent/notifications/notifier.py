@@ -63,10 +63,21 @@ def send_alerts(supabase):
         _send_ntfy(title, body)
 
         try:
-            user = supabase.auth.admin.get_user_by_id(match["user_id"])
-            email = user.user.email if user and user.user else None
-            if email:
-                _send_email(email, title, body)
+            profile = (
+                supabase.table("profiles")
+                .select("email_notifications_enabled")
+                .eq("id", match["user_id"])
+                .single()
+                .execute()
+                .data
+            )
+            email_enabled = (profile or {}).get("email_notifications_enabled", True)
+
+            if email_enabled:
+                user = supabase.auth.admin.get_user_by_id(match["user_id"])
+                email = user.user.email if user and user.user else None
+                if email:
+                    _send_email(email, title, body)
         except Exception as exc:
             print(f"  Could not look up user email: {exc}")
 

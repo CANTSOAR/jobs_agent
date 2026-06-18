@@ -1,33 +1,24 @@
-import json
-import os
 from datetime import datetime, timezone
 
-from openai import OpenAI
-
 from scraper.html_utils import extract_visible_text, fetch_html, hash_content
+from scraper.job_extraction import extract_new_jobs_from_diff
 
-client = OpenAI(
-    api_key=os.environ.get("DEEPSEEK_API_KEY"),
-    base_url="https://api.deepseek.com/v1",
-)
 
-EXTRACT_PROMPT = """You are comparing two snapshots of a company's careers page text to
-find newly posted job openings.
+def _deactivate_missing_jobs(supabase, company_id, current_text):
+    active_jobs = (
+        supabase.table("jobs")
+        .select("id, title")
+        .eq("company_id", company_id)
+        .eq("is_active", True)
+        .execute()
+        .data
+    )
 
-Company: {name}
-Careers page: {url}
+    missing = [job for job in active_jobs if job["title"] not in current_text]
+    for job in missing:
+        supabase.table("jobs").update({"is_active": False}).eq("id", job["id"]).execute()
 
-Lines that are new in today's snapshot (not present in yesterday's):
----
-{added_lines}
----
-
-From these new lines, list any job postings that appear to be genuinely new openings
-(ignore unrelated new lines, e.g. banners, cookie notices, unrelated news).
-
-Respond with ONLY valid JSON: {{"jobs": [{{"title": "...", "url": "..." or null, "location": "..." or null}}]}}
-If there are no new job postings, return {{"jobs": []}}.
-"""
+    return len(missing)
 
 
 def scrape_companies(supabase):
@@ -55,24 +46,12 @@ def scrape_companies(supabase):
 
         if added_lines:
             try:
-                response = client.chat.completions.create(
-                    model="deepseek-chat",
-                    messages=[{
-                        "role": "user",
-                        "content": EXTRACT_PROMPT.format(
-                            name=company["name"], url=url, added_lines="\n".join(added_lines)
-                        ),
-                    }],
-                    response_format={"type": "json_object"},
-                )
-                new_jobs = json.loads(response.choices[0].message.content).get("jobs", [])
+                new_jobs = extract_new_jobs_from_diff(company["name"], url, "\n".join(added_lines))
             except Exception as exc:
                 print(f"  Job extraction failed for {company['name']}: {exc}")
                 new_jobs = []
 
             for job in new_jobs:
-                if not job.get("title"):
-                    continue
                 supabase.table("jobs").insert({
                     "company_id": company["id"],
                     "title": job["title"],
@@ -81,6 +60,10 @@ def scrape_companies(supabase):
                 }).execute()
 
             print(f"  Found {len(new_jobs)} new job posting(s).")
+
+        removed_count = _deactivate_missing_jobs(supabase, company["id"], new_text)
+        if removed_count:
+            print(f"  Deactivated {removed_count} job posting(s) no longer on the page.")
 
         supabase.table("companies").update({
             "last_scraped_content": new_text,

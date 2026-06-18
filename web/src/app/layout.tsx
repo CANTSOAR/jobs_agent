@@ -2,7 +2,7 @@ import './globals.css'
 import type { Metadata } from 'next'
 
 export const metadata: Metadata = {
-  title: 'Job Opportunity Agent',
+  title: 'Jobs Agent',
   description: 'AI-powered job search agent that finds the best roles for you.',
 }
 

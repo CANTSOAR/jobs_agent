@@ -18,6 +18,7 @@ export default function DashboardProfile() {
   const [savingGoals, setSavingGoals] = useState(false);
   const [runRequests, setRunRequests] = useState<RunRequest[]>([]);
   const [requestingRun, setRequestingRun] = useState(false);
+  const [emailNotifications, setEmailNotifications] = useState(true);
 
   useEffect(() => {
     (async () => {
@@ -29,18 +30,32 @@ export default function DashboardProfile() {
       setUserId(user.id);
 
       const [{ data }, { data: runs }] = await Promise.all([
-        supabase.from('profiles').select('resume_text, goal_description').eq('id', user.id).single(),
+        supabase.from('profiles').select('resume_text, goal_description, email_notifications_enabled').eq('id', user.id).single(),
         supabase.from('run_requests').select('id, status, requested_at').order('requested_at', { ascending: false }).limit(5),
       ]);
 
       if (data) {
         setResumeText(data.resume_text || '');
         setGoalDescription(data.goal_description || '');
+        setEmailNotifications(data.email_notifications_enabled ?? true);
       }
       setRunRequests(runs || []);
       setLoading(false);
     })();
   }, []);
+
+  async function toggleEmailNotifications() {
+    if (!userId) return;
+    const next = !emailNotifications;
+    setEmailNotifications(next);
+    const { error } = await supabase
+      .from('profiles')
+      .upsert({ id: userId, email_notifications_enabled: next }, { onConflict: 'id' });
+    if (error) {
+      alert(error.message);
+      setEmailNotifications(!next);
+    }
+  }
 
   async function requestRun() {
     if (!userId) return;
@@ -101,7 +116,7 @@ export default function DashboardProfile() {
           </button>
         </div>
         {runRequests.length > 0 && (
-          <ul style={{ listStyle: 'none', display: 'grid', gap: '0.5rem' }}>
+          <ul style={{ listStyle: 'none', display: 'grid', gap: '0.5rem', marginBottom: '1rem' }}>
             {runRequests.map(r => (
               <li key={r.id} style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.85rem', color: 'var(--text-muted)' }}>
                 <span>{new Date(r.requested_at).toLocaleString()}</span>
@@ -110,6 +125,10 @@ export default function DashboardProfile() {
             ))}
           </ul>
         )}
+        <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer', fontSize: '0.9rem' }}>
+          <input type="checkbox" checked={emailNotifications} onChange={toggleEmailNotifications} />
+          Email me when the agent finds a strong job match
+        </label>
       </div>
 
       <div className="grid grid-cols-2">

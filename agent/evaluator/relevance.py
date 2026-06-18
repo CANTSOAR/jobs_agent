@@ -1,12 +1,6 @@
 import json
-import os
 
-from openai import OpenAI
-
-client = OpenAI(
-    api_key=os.environ.get("DEEPSEEK_API_KEY"),
-    base_url="https://api.deepseek.com/v1",
-)
+from llm import get_client
 
 MATCH_PROMPT = """A job seeker has the following resume and goals. Score how well the
 job below matches what they're looking for, from 0-100 (100 = perfect match, 0 =
@@ -89,7 +83,7 @@ def evaluate_jobs(supabase):
                 continue
 
             try:
-                response = client.chat.completions.create(
+                response = get_client().chat.completions.create(
                     model="deepseek-chat",
                     messages=[{
                         "role": "user",

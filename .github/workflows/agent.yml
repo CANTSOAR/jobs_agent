@@ -27,6 +27,10 @@ jobs:
         working-directory: agent
         run: pip install -r requirements.txt
 
+      - name: Install Playwright browser
+        working-directory: agent
+        run: playwright install --with-deps chromium
+
       - name: Run agent
         working-directory: agent
         env:

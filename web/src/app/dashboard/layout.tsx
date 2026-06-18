@@ -56,6 +56,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         <h2 className="title" style={{ fontSize: '1.5rem', marginBottom: '0' }}>Agent Hub</h2>
         <nav className="sidebar-nav">
           <Link href="/dashboard" className="nav-item">Profile & Goals</Link>
+          <Link href="/dashboard/jobs" className="nav-item">All Jobs</Link>
           <Link href="/dashboard/companies" className="nav-item">Company Tracking</Link>
           <Link href="/dashboard/linkedin" className="nav-item">LinkedIn Tracking</Link>
           <Link href="/dashboard/matches" className="nav-item">Job Matches</Link>

@@ -23,6 +23,7 @@ create table public.profiles (
   first_name text,
   resume_text text,
   goal_description text,
+  email_notifications_enabled boolean not null default true,
   -- The user's LinkedIn `li_at` session cookie, only populated if they
   -- explicitly opt in to LinkedIn scraping from the dashboard.
   linkedin_session_cookie text,
@@ -58,7 +59,9 @@ create table public.jobs (
   title text not null,
   url text,
   location text,
+  is_active boolean not null default true,
   first_seen_at timestamptz not null default now(),
+  last_seen_at timestamptz not null default now(),
   created_at timestamptz not null default now()
 );
 
@@ -148,12 +151,11 @@ create policy "request a company" on public.companies
 create policy "manage own subscriptions" on public.user_company_subscriptions
   for all using (user_id = auth.uid()) with check (user_id = auth.uid());
 
-create policy "view jobs for subscribed companies" on public.jobs
+-- Any whitelisted user can browse/search all currently tracked jobs, not just ones
+-- from companies they're subscribed to (the dedicated "Jobs" tab is a broad browse view).
+create policy "whitelisted users can view jobs" on public.jobs
   for select using (
-    exists (
-      select 1 from public.user_company_subscriptions s
-      where s.company_id = jobs.company_id and s.user_id = auth.uid()
-    )
+    exists (select 1 from public.whitelisted_users w where w.email = auth.jwt() ->> 'email')
   );
 
 -- Only actionable posts are surfaced, and only to subscribers of that company.

@@ -2,3 +2,5 @@
 whitelist_manager.ipynb
 node_modules
 companies.csv
+__pycache__/
+*.pyc

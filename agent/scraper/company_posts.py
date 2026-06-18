@@ -1,16 +1,10 @@
 import json
-import os
 from urllib.parse import urlsplit
 
 from bs4 import BeautifulSoup
-from openai import OpenAI
 
+from llm import get_client
 from scraper.html_utils import fetch_html
-
-client = OpenAI(
-    api_key=os.environ.get("DEEPSEEK_API_KEY"),
-    base_url="https://api.deepseek.com/v1",
-)
 
 ACTIONABLE_PROMPT = """A company posted the following update on LinkedIn. Decide whether
 it represents an actionable opportunity for a job seeker (e.g. it announces hiring, a
@@ -86,7 +80,7 @@ def scrape_company_posts(supabase):
 
         for post in new_posts:
             try:
-                response = client.chat.completions.create(
+                response = get_client().chat.completions.create(
                     model="deepseek-chat",
                     messages=[{
                         "role": "user",
