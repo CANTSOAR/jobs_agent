@@ -1,4 +1,5 @@
 import json
+from concurrent.futures import ThreadPoolExecutor, as_completed
 
 from llm import get_client
 
@@ -24,6 +25,28 @@ Location: {location}
 Respond with ONLY valid JSON: {{"score": <integer 0-100>, "reasoning": "<one or two sentences>"}}
 """
 
+# DeepSeek calls are network-bound (~2-3s each), so a thread pool gets a meaningful
+# speedup scoring many jobs. Kept modest to avoid hitting API rate limits.
+MAX_WORKERS = 8
+
+
+def _score_job(job: dict, company_name: str, profile: dict) -> dict:
+    response = get_client().chat.completions.create(
+        model="deepseek-chat",
+        messages=[{
+            "role": "user",
+            "content": MATCH_PROMPT.format(
+                resume_text=profile.get("resume_text") or "(not provided)",
+                goal_description=profile.get("goal_description") or "(not provided)",
+                job_title=job["title"],
+                company_name=company_name,
+                location=job.get("location") or "unspecified",
+            ),
+        }],
+        response_format={"type": "json_object"},
+    )
+    return json.loads(response.choices[0].message.content)
+
 
 def evaluate_jobs(supabase):
     """
@@ -40,64 +63,52 @@ def evaluate_jobs(supabase):
     if not users_by_company:
         return
 
-    jobs = (
-        supabase.table("jobs")
-        .select("*")
-        .in_("company_id", list(users_by_company.keys()))
-        .execute()
-        .data
-    )
+    company_ids = list(users_by_company.keys())
 
-    company_names: dict[str, str] = {}
-    profiles_cache: dict[str, dict] = {}
+    jobs = supabase.table("jobs").select("*").in_("company_id", company_ids).execute().data
+    if not jobs:
+        return
 
+    companies = supabase.table("companies").select("id, name").in_("id", company_ids).execute().data
+    company_names = {c["id"]: c["name"] for c in companies}
+
+    job_ids = [job["id"] for job in jobs]
+    existing_pairs = {
+        (row["user_id"], row["job_id"])
+        for row in supabase.table("user_job_matches").select("user_id, job_id").in_("job_id", job_ids).execute().data
+    }
+
+    user_ids = {user_id for users in users_by_company.values() for user_id in users}
+    profiles = supabase.table("profiles").select("id, resume_text, goal_description").in_("id", list(user_ids)).execute().data
+    profiles_by_id = {p["id"]: p for p in profiles}
+
+    pending = []
     for job in jobs:
-        if job["company_id"] not in company_names:
-            company = supabase.table("companies").select("name").eq("id", job["company_id"]).single().execute().data
-            company_names[job["company_id"]] = company["name"] if company else ""
-
         for user_id in users_by_company.get(job["company_id"], []):
-            existing = (
-                supabase.table("user_job_matches")
-                .select("id")
-                .eq("user_id", user_id)
-                .eq("job_id", job["id"])
-                .execute()
-                .data
-            )
-            if existing:
+            if (user_id, job["id"]) in existing_pairs:
                 continue
 
-            if user_id not in profiles_cache:
-                profiles_cache[user_id] = (
-                    supabase.table("profiles")
-                    .select("resume_text, goal_description")
-                    .eq("id", user_id)
-                    .single()
-                    .execute()
-                    .data
-                ) or {}
-
-            profile = profiles_cache[user_id]
+            profile = profiles_by_id.get(user_id) or {}
             if not profile.get("resume_text") and not profile.get("goal_description"):
                 continue
 
+            pending.append((job, user_id, profile))
+
+    if not pending:
+        return
+
+    print(f"  Scoring {len(pending)} job/user pair(s) ({MAX_WORKERS} at a time)...")
+
+    with ThreadPoolExecutor(max_workers=MAX_WORKERS) as pool:
+        futures = {
+            pool.submit(_score_job, job, company_names.get(job["company_id"], ""), profile): (job, user_id)
+            for job, user_id, profile in pending
+        }
+
+        for future in as_completed(futures):
+            job, user_id = futures[future]
             try:
-                response = get_client().chat.completions.create(
-                    model="deepseek-chat",
-                    messages=[{
-                        "role": "user",
-                        "content": MATCH_PROMPT.format(
-                            resume_text=profile.get("resume_text") or "(not provided)",
-                            goal_description=profile.get("goal_description") or "(not provided)",
-                            job_title=job["title"],
-                            company_name=company_names[job["company_id"]],
-                            location=job.get("location") or "unspecified",
-                        ),
-                    }],
-                    response_format={"type": "json_object"},
-                )
-                result = json.loads(response.choices[0].message.content)
+                result = future.result()
             except Exception as exc:
                 print(f"  Relevance evaluation failed for job {job['id']} / user {user_id}: {exc}")
                 continue
