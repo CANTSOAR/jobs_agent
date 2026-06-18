@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import { supabase } from '@/lib/supabaseClient';
+import { basePath } from '@/lib/basePath';
 
 interface Job {
   id: string;
@@ -84,10 +85,10 @@ export default function AllJobs() {
         {filteredJobs.map(job => (
           <div key={job.id} className="card" style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
             <img
-              src={job.companies?.favicon_url || '/file.svg'}
+              src={job.companies?.favicon_url || `${basePath}/file.svg`}
               alt=""
               className="company-favicon"
-              onError={(e) => { (e.target as HTMLImageElement).src = '/file.svg'; }}
+              onError={(e) => { (e.target as HTMLImageElement).src = `${basePath}/file.svg`; }}
             />
             <div style={{ flex: 1, minWidth: 0 }}>
               <h3 style={{ marginBottom: '0.25rem' }}>

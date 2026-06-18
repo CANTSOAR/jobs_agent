@@ -2,6 +2,7 @@
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { supabase } from '@/lib/supabaseClient';
+import { basePath } from '@/lib/basePath';
 
 export default function Home() {
   const router = useRouter();
@@ -59,9 +60,12 @@ export default function Home() {
   return (
     <main className="container flex-center" style={{ minHeight: '100vh' }}>
       <div className="card" style={{ maxWidth: '400px', width: '100%' }}>
-        <h1 className="title text-gradient" style={{ textAlign: 'center', fontSize: '2.5rem' }}>
-          {mode === 'signin' ? 'Agent Login' : 'Create Account'}
-        </h1>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.75rem', marginBottom: '1rem' }}>
+          <img src={`${basePath}/icon.svg`} alt="" width={40} height={40} />
+          <h1 className="title text-gradient" style={{ fontSize: '2.5rem', marginBottom: 0 }}>
+            {mode === 'signin' ? 'Agent Login' : 'Create Account'}
+          </h1>
+        </div>
         <p className="subtitle" style={{ textAlign: 'center' }}>
           {mode === 'signin' ? 'Enter your credentials to continue' : 'Sign up, then wait to be whitelisted'}
         </p>

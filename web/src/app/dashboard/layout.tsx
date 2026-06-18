@@ -3,6 +3,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import { supabase } from '@/lib/supabaseClient';
+import { basePath } from '@/lib/basePath';
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
   const router = useRouter();
@@ -53,7 +54,10 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   return (
     <div className="dashboard-layout">
       <aside className="sidebar">
-        <h2 className="title" style={{ fontSize: '1.5rem', marginBottom: '0' }}>Agent Hub</h2>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+          <img src={`${basePath}/icon.svg`} alt="" width={28} height={28} />
+          <h2 className="title" style={{ fontSize: '1.5rem', marginBottom: '0' }}>Agent Hub</h2>
+        </div>
         <nav className="sidebar-nav">
           <Link href="/dashboard" className="nav-item">Profile & Goals</Link>
           <Link href="/dashboard/jobs" className="nav-item">All Jobs</Link>
@@ -61,6 +65,13 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
           <Link href="/dashboard/linkedin" className="nav-item">LinkedIn Tracking</Link>
           <Link href="/dashboard/matches" className="nav-item">Job Matches</Link>
         </nav>
+        <button
+          className="btn btn-secondary"
+          style={{ marginTop: 'auto' }}
+          onClick={() => supabase.auth.signOut().then(() => router.push('/'))}
+        >
+          Sign Out
+        </button>
       </aside>
       <main className="main-content">
         {children}

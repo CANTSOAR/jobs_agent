@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { supabase } from '@/lib/supabaseClient';
+import { basePath } from '@/lib/basePath';
 
 interface JobMatch {
   id: string;
@@ -49,10 +50,10 @@ export default function JobMatches() {
             <div key={match.id} className="card" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '1rem' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', minWidth: 0 }}>
                 <img
-                  src={company?.favicon_url || '/file.svg'}
+                  src={company?.favicon_url || `${basePath}/file.svg`}
                   alt=""
                   className="company-favicon"
-                  onError={(e) => { (e.target as HTMLImageElement).src = '/file.svg'; }}
+                  onError={(e) => { (e.target as HTMLImageElement).src = `${basePath}/file.svg`; }}
                 />
                 <div style={{ minWidth: 0 }}>
                   <h3 style={{ marginBottom: '0.25rem' }}>

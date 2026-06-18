@@ -171,6 +171,9 @@ h1, h2, h3, h4, h5, h6 {
   background: var(--glass-bg);
   border-right: 2px solid var(--card-border);
   padding: 2rem 1rem;
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
 }
 
 .sidebar-nav {
@@ -214,7 +217,7 @@ h1, h2, h3, h4, h5, h6 {
   border-radius: 2px;
   flex-shrink: 0;
   object-fit: contain;
-  background: var(--bg-color);
+  background: var(--card-bg);
 }
 
 .company-card-body {

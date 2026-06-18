@@ -1,6 +1,7 @@
 'use client';
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { supabase } from '@/lib/supabaseClient';
+import { basePath } from '@/lib/basePath';
 
 interface Company {
   id: string;
@@ -30,6 +31,7 @@ export default function CompaniesTracking() {
   const [name, setName] = useState('');
   const [url, setUrl] = useState('');
   const [submitting, setSubmitting] = useState(false);
+  const [search, setSearch] = useState('');
 
   useEffect(() => {
     loadData();
@@ -78,6 +80,31 @@ export default function CompaniesTracking() {
     }
   }
 
+  const filteredCompanies = useMemo(() => {
+    const query = search.trim().toLowerCase();
+    if (!query) return companies;
+    return companies.filter(c => c.name.toLowerCase().includes(query));
+  }, [companies, search]);
+
+  const allFilteredSelected = filteredCompanies.length > 0 && filteredCompanies.every(c => subscribedIds.has(c.id));
+
+  async function toggleSelectAll() {
+    if (!userId || filteredCompanies.length === 0) return;
+    const next = new Set(subscribedIds);
+
+    if (allFilteredSelected) {
+      const ids = filteredCompanies.map(c => c.id);
+      ids.forEach(id => next.delete(id));
+      setSubscribedIds(next);
+      await supabase.from('user_company_subscriptions').delete().eq('user_id', userId).in('company_id', ids);
+    } else {
+      const ids = filteredCompanies.filter(c => !subscribedIds.has(c.id)).map(c => c.id);
+      ids.forEach(id => next.add(id));
+      setSubscribedIds(next);
+      await supabase.from('user_company_subscriptions').insert(ids.map(id => ({ user_id: userId, company_id: id })));
+    }
+  }
+
   async function handleRequest(e: React.FormEvent) {
     e.preventDefault();
     if (!userId) return;
@@ -109,30 +136,7 @@ export default function CompaniesTracking() {
       <h1 className="title text-gradient">Company Tracking</h1>
       <p className="subtitle">Check the companies you want the agent to monitor for new job postings.</p>
 
-      <div className="grid grid-cols-3" style={{ marginBottom: '2.5rem' }}>
-        {companies.map(company => (
-          <label key={company.id} className="card company-card">
-            <img
-              src={company.favicon_url || '/file.svg'}
-              alt=""
-              className="company-favicon"
-              onError={(e) => { (e.target as HTMLImageElement).src = '/file.svg'; }}
-            />
-            <div className="company-card-body">
-              <h3>{company.name}</h3>
-              <a href={company.careers_page_url} target="_blank" rel="noreferrer">View Page ↗</a>
-            </div>
-            <input
-              type="checkbox"
-              checked={subscribedIds.has(company.id)}
-              onChange={() => toggleSubscription(company.id)}
-            />
-          </label>
-        ))}
-        {companies.length === 0 && <p className="subtitle">No approved companies yet — request one below.</p>}
-      </div>
-
-      <div className="card" style={{ marginBottom: '2rem' }}>
+      <div className="card" style={{ marginBottom: '2.5rem' }}>
         <h2 style={{ marginBottom: '1rem' }}>Request a New Company</h2>
         <form onSubmit={handleRequest}>
           <div className="grid grid-cols-2">
@@ -152,6 +156,45 @@ export default function CompaniesTracking() {
         <p className="subtitle" style={{ fontSize: '0.85rem', marginTop: '1rem', marginBottom: 0 }}>
           The agent reviews new requests on its next scheduled run and approves it automatically if it looks like a real careers page.
         </p>
+      </div>
+
+      <div className="card" style={{ marginBottom: '1.5rem', display: 'flex', gap: '1rem', flexWrap: 'wrap', alignItems: 'flex-end' }}>
+        <div className="input-group" style={{ flex: 1, minWidth: '240px', marginBottom: 0 }}>
+          <label>Search companies</label>
+          <input
+            className="input-field"
+            placeholder="Filter by name..."
+            value={search}
+            onChange={e => setSearch(e.target.value)}
+          />
+        </div>
+        <button type="button" className="btn btn-secondary" onClick={toggleSelectAll} disabled={filteredCompanies.length === 0}>
+          {allFilteredSelected ? 'Deselect All' : 'Select All'}
+        </button>
+      </div>
+
+      <div className="grid grid-cols-3" style={{ marginBottom: '2.5rem' }}>
+        {filteredCompanies.map(company => (
+          <label key={company.id} className="card company-card">
+            <img
+              src={company.favicon_url || `${basePath}/file.svg`}
+              alt=""
+              className="company-favicon"
+              onError={(e) => { (e.target as HTMLImageElement).src = `${basePath}/file.svg`; }}
+            />
+            <div className="company-card-body">
+              <h3>{company.name}</h3>
+              <a href={company.careers_page_url} target="_blank" rel="noreferrer">View Page ↗</a>
+            </div>
+            <input
+              type="checkbox"
+              checked={subscribedIds.has(company.id)}
+              onChange={() => toggleSubscription(company.id)}
+            />
+          </label>
+        ))}
+        {companies.length === 0 && <p className="subtitle">No approved companies yet — request one above.</p>}
+        {companies.length > 0 && filteredCompanies.length === 0 && <p className="subtitle">No companies match your search.</p>}
       </div>
 
       {myRequests.length > 0 && (
@@ -191,10 +234,10 @@ export default function CompaniesTracking() {
                 style={{ textDecoration: 'none', color: 'inherit', alignItems: 'flex-start' }}
               >
                 <img
-                  src={post.companies?.favicon_url || '/file.svg'}
+                  src={post.companies?.favicon_url || `${basePath}/file.svg`}
                   alt=""
                   className="company-favicon"
-                  onError={(e) => { (e.target as HTMLImageElement).src = '/file.svg'; }}
+                  onError={(e) => { (e.target as HTMLImageElement).src = `${basePath}/file.svg`; }}
                 />
                 <div className="company-card-body">
                   <h3>{post.companies?.name}</h3>
