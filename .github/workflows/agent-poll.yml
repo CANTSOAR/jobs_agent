@@ -1,10 +1,15 @@
 name: Run job agent (on-demand poll)
 
 on:
+  # Primary trigger: a Supabase database webhook (pg_net, see supabase/schema.sql)
+  # fires this the instant a row lands in run_requests -- near-instant in practice.
+  repository_dispatch:
+    types: [run_request_created]
+  # Fallback safety net in case the webhook ever fails to fire (PAT expiry, pg_net
+  # hiccup, etc). GitHub's own docs say schedules under 15 min are frequently
+  # delayed or skipped on shared runners, so this is a backstop, not the real path.
   schedule:
-    # GitHub's minimum schedule granularity is 5 minutes, and actual runs can be
-    # delayed further during high load — this is "near real-time," not instant.
-    - cron: '*/5 * * * *'
+    - cron: '*/15 * * * *'
   workflow_dispatch:
 
 permissions:

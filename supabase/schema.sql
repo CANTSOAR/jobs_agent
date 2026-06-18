@@ -110,9 +110,8 @@ create table public.user_job_matches (
 );
 
 -- ---------- On-demand agent run requests ----------
--- A whitelisted user can insert a row here to ask the agent to run before its next
--- scheduled cron tick. A separate lightweight poller (agent/poll_requests.py), run on
--- a tighter cron interval, picks these up.
+-- A whitelisted user can insert a row here to ask the agent to run right away
+-- instead of waiting for the next scheduled cron tick.
 create table public.run_requests (
   id uuid primary key default gen_random_uuid(),
   requested_by uuid references auth.users(id) on delete set null,
@@ -124,6 +123,52 @@ create table public.run_requests (
   requested_at timestamptz not null default now(),
   completed_at timestamptz
 );
+
+-- Fires the GitHub Actions on-demand workflow (.github/workflows/agent-poll.yml) the
+-- instant a row lands here, via a repository_dispatch call, instead of waiting on
+-- GitHub's own (unreliable under 15min) cron schedule.
+--
+-- Requires the pg_net extension and a Supabase Vault secret named 'github_pat'
+-- holding a fine-grained PAT (scoped to just this repo, Contents: Read and write).
+-- That secret is NOT created here -- it has to be created once, manually, via:
+--   select vault.create_secret('<your PAT>', 'github_pat', 'Triggers repository_dispatch on run_requests insert');
+-- (Re-run that after a delete.sql + schema.sql rebuild; Vault secrets aren't dropped
+-- by delete.sql, but a fresh Supabase project obviously won't have one yet.)
+create extension if not exists pg_net;
+
+create or replace function public.notify_github_on_run_request()
+returns trigger
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  pat text;
+begin
+  select decrypted_secret into pat from vault.decrypted_secrets where name = 'github_pat' limit 1;
+
+  if pat is not null then
+    perform net.http_post(
+      url := 'https://api.github.com/repos/CANTSOAR/jobs_agent/dispatches',
+      headers := jsonb_build_object(
+        'Authorization', 'Bearer ' || pat,
+        'Accept', 'application/vnd.github+json',
+        'Content-Type', 'application/json'
+      ),
+      body := jsonb_build_object('event_type', 'run_request_created')
+    );
+  end if;
+
+  return new;
+end;
+$$;
+
+drop trigger if exists on_run_request_created on public.run_requests;
+create trigger on_run_request_created
+  after insert on public.run_requests
+  for each row
+  when (new.status = 'pending')
+  execute function public.notify_github_on_run_request();
 
 -- ---------- RLS ----------
 alter table public.whitelisted_users enable row level security;
