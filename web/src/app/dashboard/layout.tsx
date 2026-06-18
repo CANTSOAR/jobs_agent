@@ -54,7 +54,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   return (
     <div className="dashboard-layout">
       <aside className="sidebar">
-        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem' }}>
           <img src={`${basePath}/icon.svg`} alt="" width={28} height={28} />
           <h2 className="title" style={{ fontSize: '1.5rem', marginBottom: '0' }}>Agent Hub</h2>
         </div>
