@@ -117,6 +117,10 @@ create table public.run_requests (
   id uuid primary key default gen_random_uuid(),
   requested_by uuid references auth.users(id) on delete set null,
   status text not null default 'pending' check (status in ('pending', 'running', 'completed', 'failed')),
+  -- 'full' = the regular scrape+evaluate+notify pipeline. 'evaluate_only' = skip
+  -- scraping and just (re-)score jobs already in the system against the user's
+  -- profile, then notify -- the "Find My Matches Now" button.
+  request_type text not null default 'full' check (request_type in ('full', 'evaluate_only')),
   requested_at timestamptz not null default now(),
   completed_at timestamptz
 );

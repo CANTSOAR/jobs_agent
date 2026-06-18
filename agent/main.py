@@ -53,5 +53,21 @@ def run_agent():
 
     print("Agent run complete.")
 
+
+def evaluate_and_notify():
+    """
+    Scores every job not yet scored for every subscribed user, then emails the ones
+    that clear the threshold. Skips scraping entirely -- for the "Find My Matches Now"
+    button, where the point is to (re-)score jobs already in the system, not find new ones.
+    """
+    print("Evaluating jobs against profiles...")
+    evaluate_jobs(supabase)
+
+    print("Sending notifications...")
+    send_alerts(supabase)
+
+    print("Done.")
+
+
 if __name__ == "__main__":
     run_agent()

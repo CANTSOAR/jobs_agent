@@ -1,6 +1,6 @@
 # Job Opportunity AI Agent
 
-An automated, AI-powered job search agent that actively monitors company recruiting pages and LinkedIn searches to find highly relevant job opportunities. It evaluates listings against your resume and career goals using DeepSeek AI, and sends notifications (via SMTP/ntfy) only when it finds a strong match.
+An automated, AI-powered job search agent that actively monitors company recruiting pages and LinkedIn searches to find highly relevant job opportunities. It evaluates listings against your resume and career goals using DeepSeek AI, and sends email notifications only when it finds a strong match.
 
 ## Overview
 
@@ -14,12 +14,12 @@ The project is split into two primary components that work seamlessly together v
    - Scrapes the requested job boards and LinkedIn.
    - Compares the HTML/content to the previous day's cached version to isolate *new* jobs.
    - Uses the **DeepSeek AI** to evaluate each new job against the user's uploaded resume and goals.
-   - Pushes mobile notifications (via NTFY) and emails (via SMTP) for highly-scored matches.
+   - Emails (via SMTP) the matched user for highly-scored matches.
 
 ## Architecture & Data Flow
 
 - **Database**: Supabase acts as the central source of truth. It handles user authentication, maintains the whitelist of allowed users, stores the job data, and logs the AI evaluation scores. Row Level Security (RLS) policies are in place to ensure users only see their own data.
-- **Frontend**: A React application built with Next.js App Router and a premium, dark-mode vanilla CSS design system. It uses `output: 'export'` to remain completely static.
+- **Frontend**: A React application built with Next.js App Router and a vanilla CSS design system. It uses `output: 'export'` to remain completely static.
 - **Backend Worker**: A Python script utilizing `playwright` for scraping, `openai` library connected to DeepSeek for LLM evaluations, and `supabase-py` for database interaction.
 
 ## Setup Instructions
@@ -33,7 +33,6 @@ The project is split into two primary components that work seamlessly together v
 Copy `.env.example` to `.env` and fill in your real keys:
 - `SUPABASE_URL` and `SUPABASE_KEY` — `SUPABASE_KEY` must be the **service_role (secret)** key (Project Settings > API), since the agent needs to bypass RLS to write companies/jobs. Never use this key in the frontend.
 - `DEEPSEEK_API_KEY` for AI evaluations.
-- `NTFY_TOPIC` for mobile push notifications.
 - `SMTP_*` variables for email delivery.
 
 `.env` is gitignored and should never be committed.

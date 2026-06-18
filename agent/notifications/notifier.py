@@ -2,26 +2,12 @@ import os
 import smtplib
 from email.mime.text import MIMEText
 
-import httpx
-
-NTFY_TOPIC = os.environ.get("NTFY_TOPIC")
 SMTP_HOST = os.environ.get("SMTP_HOST")
 SMTP_PORT = int(os.environ.get("SMTP_PORT", "587"))
 SMTP_USER = os.environ.get("SMTP_USER")
 SMTP_PASS = os.environ.get("SMTP_PASS")
 
 NOTIFY_THRESHOLD = 70
-
-
-def _send_ntfy(title: str, message: str):
-    if not NTFY_TOPIC or NTFY_TOPIC == "your-ntfy-topic":
-        return
-    httpx.post(
-        f"https://ntfy.sh/{NTFY_TOPIC}",
-        content=message.encode("utf-8"),
-        headers={"Title": title},
-        timeout=10,
-    )
 
 
 def _send_email(to_email: str, subject: str, body: str):
@@ -40,9 +26,9 @@ def _send_email(to_email: str, subject: str, body: str):
 
 def send_alerts(supabase):
     """
-    Notifies on job matches scored at or above NOTIFY_THRESHOLD that haven't been
-    notified yet, then marks them 'notified' so they aren't sent twice. Both ntfy and
-    SMTP are no-ops until their env vars are filled in with real values.
+    Emails on job matches scored at or above NOTIFY_THRESHOLD that haven't been
+    notified yet, then marks them 'notified' so they aren't sent twice. A no-op until
+    SMTP_HOST/SMTP_USER/SMTP_PASS are filled in with real values.
     """
     matches = (
         supabase.table("user_job_matches")
@@ -60,7 +46,6 @@ def send_alerts(supabase):
         body = f"Score: {match['score']}/100\n{match.get('reasoning') or ''}\n{job.get('url') or ''}"
 
         print(f"Sending alert for job match ID: {match['id']}")
-        _send_ntfy(title, body)
 
         try:
             profile = (

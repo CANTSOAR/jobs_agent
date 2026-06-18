@@ -6,6 +6,7 @@ import { supabase } from '@/lib/supabaseClient';
 interface RunRequest {
   id: string;
   status: string;
+  request_type: string;
   requested_at: string;
 }
 
@@ -18,6 +19,7 @@ export default function DashboardProfile() {
   const [savingGoals, setSavingGoals] = useState(false);
   const [runRequests, setRunRequests] = useState<RunRequest[]>([]);
   const [requestingRun, setRequestingRun] = useState(false);
+  const [requestingMatches, setRequestingMatches] = useState(false);
   const [emailNotifications, setEmailNotifications] = useState(true);
 
   useEffect(() => {
@@ -31,7 +33,7 @@ export default function DashboardProfile() {
 
       const [{ data }, { data: runs }] = await Promise.all([
         supabase.from('profiles').select('resume_text, goal_description, email_notifications_enabled').eq('id', user.id).single(),
-        supabase.from('run_requests').select('id, status, requested_at').order('requested_at', { ascending: false }).limit(5),
+        supabase.from('run_requests').select('id, status, request_type, requested_at').order('requested_at', { ascending: false }).limit(5),
       ]);
 
       if (data) {
@@ -57,21 +59,31 @@ export default function DashboardProfile() {
     }
   }
 
+  async function refreshRunRequests() {
+    const { data: runs } = await supabase
+      .from('run_requests')
+      .select('id, status, request_type, requested_at')
+      .order('requested_at', { ascending: false })
+      .limit(5);
+    setRunRequests(runs || []);
+  }
+
   async function requestRun() {
     if (!userId) return;
     setRequestingRun(true);
-    const { error } = await supabase.from('run_requests').insert({ requested_by: userId });
-    if (error) {
-      alert(error.message);
-    } else {
-      const { data: runs } = await supabase
-        .from('run_requests')
-        .select('id, status, requested_at')
-        .order('requested_at', { ascending: false })
-        .limit(5);
-      setRunRequests(runs || []);
-    }
+    const { error } = await supabase.from('run_requests').insert({ requested_by: userId, request_type: 'full' });
+    if (error) alert(error.message);
+    else await refreshRunRequests();
     setRequestingRun(false);
+  }
+
+  async function requestMatches() {
+    if (!userId) return;
+    setRequestingMatches(true);
+    const { error } = await supabase.from('run_requests').insert({ requested_by: userId, request_type: 'evaluate_only' });
+    if (error) alert(error.message);
+    else await refreshRunRequests();
+    setRequestingMatches(false);
   }
 
   async function saveResume() {
@@ -111,15 +123,20 @@ export default function DashboardProfile() {
               The agent normally runs on whatever schedule you&apos;ve set up. Request an extra run any time.
             </p>
           </div>
-          <button className="btn" onClick={requestRun} disabled={requestingRun}>
-            {requestingRun ? 'Requesting...' : 'Run Agent Now'}
-          </button>
+          <div style={{ display: 'flex', gap: '0.75rem', flexShrink: 0 }}>
+            <button className="btn btn-secondary" onClick={requestMatches} disabled={requestingMatches}>
+              {requestingMatches ? 'Requesting...' : 'Find My Matches Now'}
+            </button>
+            <button className="btn" onClick={requestRun} disabled={requestingRun}>
+              {requestingRun ? 'Requesting...' : 'Run Agent Now'}
+            </button>
+          </div>
         </div>
         {runRequests.length > 0 && (
           <ul style={{ listStyle: 'none', display: 'grid', gap: '0.5rem', marginBottom: '1rem' }}>
             {runRequests.map(r => (
               <li key={r.id} style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.85rem', color: 'var(--text-muted)' }}>
-                <span>{new Date(r.requested_at).toLocaleString()}</span>
+                <span>{new Date(r.requested_at).toLocaleString()} — {r.request_type === 'evaluate_only' ? 'find matches' : 'full run'}</span>
                 <span className={`status-badge status-${r.status}`}>{r.status}</span>
               </li>
             ))}
