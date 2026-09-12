@@ -4,6 +4,7 @@ import argparse
 import json
 import os
 import socket
+import sys
 import time
 from pathlib import Path
 
@@ -87,6 +88,44 @@ def _print_result(result) -> int:
     return 0 if result.status.value not in {"failed", "submission_unknown"} else 1
 
 
+def _watch_queue(runner, *, worker_id: str, lease_minutes: int, poll_seconds: int) -> int:
+    """Keep transient database/network failures from killing the local worker."""
+    consecutive_failures = 0
+    print(json.dumps({"status": "watching", "poll_seconds": poll_seconds}))
+    try:
+        while True:
+            try:
+                result = runner.run_next(worker_id, lease_minutes)
+            except Exception as exc:
+                consecutive_failures += 1
+                retry_seconds = min(
+                    300,
+                    poll_seconds * (2 ** min(consecutive_failures - 1, 3)),
+                )
+                print(
+                    json.dumps(
+                        {
+                            "status": "retrying",
+                            "error_type": type(exc).__name__,
+                            "message": str(exc)[:300],
+                            "retry_seconds": retry_seconds,
+                        },
+                        sort_keys=True,
+                    ),
+                    file=sys.stderr,
+                )
+                time.sleep(retry_seconds)
+                continue
+
+            consecutive_failures = 0
+            _print_result(result)
+            if result is None:
+                time.sleep(poll_seconds)
+    except KeyboardInterrupt:
+        print(json.dumps({"status": "stopped"}))
+        return 0
+
+
 def main(argv: list[str] | None = None) -> int:
     load_dotenv()
     args = build_parser().parse_args(argv)
@@ -110,16 +149,12 @@ def main(argv: list[str] | None = None) -> int:
         return _print_result(runner.run_next(args.worker_id, args.lease_minutes))
 
     poll_seconds = max(10, args.poll_seconds)
-    print(json.dumps({"status": "watching", "poll_seconds": poll_seconds}))
-    try:
-        while True:
-            result = runner.run_next(args.worker_id, args.lease_minutes)
-            _print_result(result)
-            if result is None:
-                time.sleep(poll_seconds)
-    except KeyboardInterrupt:
-        print(json.dumps({"status": "stopped"}))
-        return 0
+    return _watch_queue(
+        runner,
+        worker_id=args.worker_id,
+        lease_minutes=args.lease_minutes,
+        poll_seconds=poll_seconds,
+    )
 
 
 if __name__ == "__main__":

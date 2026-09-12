@@ -61,7 +61,9 @@ private paths outside this repository. Do not point the worker at a normal perso
 Chrome profile.
 
 Omit `--watch` to process at most one queue item. In watch mode the worker polls
-every 60 seconds while idle; use `--poll-seconds` to change that interval.
+every 60 seconds while idle; use `--poll-seconds` to change that interval. Transient
+database or network failures back off exponentially (up to five minutes) without
+terminating the watcher.
 
 Modes are read from the claimed application:
 
