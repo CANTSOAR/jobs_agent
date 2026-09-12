@@ -1,6 +1,8 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import { ApplicationReference, JobApplicationAction } from '@/components/JobApplicationAction';
+import { isApplicationStatus } from '@/lib/applicationStatus';
 import { supabase } from '@/lib/supabaseClient';
 import { basePath } from '@/lib/basePath';
 
@@ -11,6 +13,7 @@ interface JobMatch {
   status: string;
   created_at: string;
   jobs: {
+    id: string;
     title: string;
     url: string | null;
     location: string | null;
@@ -21,17 +24,44 @@ interface JobMatch {
 export default function JobMatches() {
   const [matches, setMatches] = useState<JobMatch[]>([]);
   const [loading, setLoading] = useState(true);
+  const [userId, setUserId] = useState<string | null>(null);
+  const [applicationByJob, setApplicationByJob] = useState<Record<string, ApplicationReference>>({});
 
   useEffect(() => {
     (async () => {
-      const { data } = await supabase
-        .from('user_job_matches')
-        .select('id, score, reasoning, status, created_at, jobs(title, url, location, companies(name, favicon_url))')
-        .order('score', { ascending: false });
-      setMatches((data as unknown as JobMatch[]) || []);
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) {
+        setLoading(false);
+        return;
+      }
+      setUserId(user.id);
+
+      const [{ data: matchRows }, { data: applicationRows }] = await Promise.all([
+        supabase
+          .from('user_job_matches')
+          .select('id, score, reasoning, status, created_at, jobs(id, title, url, location, companies(name, favicon_url))')
+          .order('score', { ascending: false }),
+        supabase
+          .from('applications')
+          .select('id, job_id, status')
+          .eq('user_id', user.id),
+      ]);
+
+      setMatches((matchRows as unknown as JobMatch[]) || []);
+      const nextApplications: Record<string, ApplicationReference> = {};
+      (applicationRows || []).forEach((application) => {
+        if (isApplicationStatus(application.status)) {
+          nextApplications[application.job_id] = application as ApplicationReference;
+        }
+      });
+      setApplicationByJob(nextApplications);
       setLoading(false);
     })();
   }, []);
+
+  function recordQueuedApplication(application: ApplicationReference) {
+    setApplicationByJob((current) => ({ ...current, [application.job_id]: application }));
+  }
 
   if (loading) {
     return <p className="subtitle">Loading matches...</p>;
@@ -47,7 +77,7 @@ export default function JobMatches() {
           const job = match.jobs;
           const company = job?.companies;
           return (
-            <div key={match.id} className="card" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '1rem' }}>
+            <div key={match.id} className="card match-card">
               <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', minWidth: 0 }}>
                 <img
                   src={company?.favicon_url || `${basePath}/file.svg`}
@@ -73,7 +103,18 @@ export default function JobMatches() {
                   )}
                 </div>
               </div>
-              <span className="status-badge status-approved" style={{ flexShrink: 0 }}>{match.score}/100</span>
+              <div className="match-actions">
+                <span className="status-badge status-approved">{match.score}/100</span>
+                {job && (
+                  <JobApplicationAction
+                    application={applicationByJob[job.id]}
+                    jobId={job.id}
+                    targetUrl={job.url}
+                    userId={userId}
+                    onQueued={recordQueuedApplication}
+                  />
+                )}
+              </div>
             </div>
           );
         })}

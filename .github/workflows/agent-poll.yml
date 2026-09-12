@@ -32,7 +32,7 @@ jobs:
           python-version: '3.12'
 
       # Cheap path: just a single Supabase query, no Playwright install. This runs
-      # every 5 minutes, so keeping it fast matters even though it's free on a public repo.
+      # every 15 minutes, so keeping it fast matters even though it's free on a public repo.
       - name: Install minimal dependencies
         working-directory: agent
         run: pip install supabase python-dotenv

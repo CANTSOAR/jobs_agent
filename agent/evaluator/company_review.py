@@ -2,6 +2,7 @@ import json
 from datetime import datetime, timezone
 
 from llm import get_client
+from ingestion.service import upsert_scraped_job
 from scraper.html_utils import (
     extract_favicon_url,
     extract_linkedin_company_url,
@@ -81,12 +82,14 @@ def review_pending_companies(supabase):
                 initial_jobs = []
 
             for job in initial_jobs:
-                supabase.table("jobs").insert({
-                    "company_id": company["id"],
-                    "title": job["title"],
-                    "url": job.get("url"),
-                    "location": job.get("location"),
-                }).execute()
+                upsert_scraped_job(
+                    supabase,
+                    company_id=company["id"],
+                    company_name=name,
+                    title=job["title"],
+                    url=job.get("url"),
+                    location=job.get("location"),
+                )
             print(f"  Populated {len(initial_jobs)} initial job posting(s).")
         else:
             supabase.table("companies").update({

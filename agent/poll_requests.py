@@ -33,9 +33,9 @@ def poll_and_run():
 
     try:
         if needs_full_run:
-            run_agent()
+            run_agent(supabase)
         else:
-            evaluate_and_notify()
+            evaluate_and_notify(supabase)
     except Exception:
         supabase.table("run_requests").update({"status": "failed"}).in_("id", request_ids).execute()
         raise

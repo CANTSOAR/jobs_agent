@@ -2,6 +2,7 @@ from datetime import datetime, timezone
 
 from scraper.html_utils import extract_visible_text, fetch_html, hash_content
 from scraper.job_extraction import extract_new_jobs_from_diff
+from ingestion.service import upsert_scraped_job
 
 
 def _deactivate_missing_jobs(supabase, company_id, current_text):
@@ -9,6 +10,7 @@ def _deactivate_missing_jobs(supabase, company_id, current_text):
         supabase.table("jobs")
         .select("id, title")
         .eq("company_id", company_id)
+        .eq("discovery_method", "scrape")
         .eq("is_active", True)
         .execute()
         .data
@@ -22,7 +24,14 @@ def _deactivate_missing_jobs(supabase, company_id, current_text):
 
 
 def scrape_companies(supabase):
-    companies = supabase.table("companies").select("*").eq("status", "approved").execute().data
+    companies = (
+        supabase.table("companies")
+        .select("*")
+        .eq("status", "approved")
+        .eq("scrape_enabled", True)
+        .execute()
+        .data
+    )
 
     for company in companies:
         url = company["careers_page_url"]
@@ -52,12 +61,14 @@ def scrape_companies(supabase):
                 new_jobs = []
 
             for job in new_jobs:
-                supabase.table("jobs").insert({
-                    "company_id": company["id"],
-                    "title": job["title"],
-                    "url": job.get("url"),
-                    "location": job.get("location"),
-                }).execute()
+                upsert_scraped_job(
+                    supabase,
+                    company_id=company["id"],
+                    company_name=company["name"],
+                    title=job["title"],
+                    url=job.get("url"),
+                    location=job.get("location"),
+                )
 
             print(f"  Found {len(new_jobs)} new job posting(s).")
 

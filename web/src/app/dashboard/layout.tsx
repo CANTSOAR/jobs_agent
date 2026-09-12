@@ -1,12 +1,13 @@
 'use client';
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
+import { usePathname, useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import { supabase } from '@/lib/supabaseClient';
 import { basePath } from '@/lib/basePath';
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
   const router = useRouter();
+  const pathname = usePathname();
   const [loading, setLoading] = useState(true);
   const [isWhitelisted, setIsWhitelisted] = useState(false);
 
@@ -32,7 +33,11 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     }
 
     checkWhitelist();
-  }, []);
+  }, [router]);
+
+  function navClassName(href: string) {
+    return `nav-item${pathname === href ? ' active' : ''}`;
+  }
 
   if (loading) {
     return <div className="flex-center" style={{ minHeight: '100vh' }}>Loading...</div>;
@@ -59,11 +64,12 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
           <h2 className="title" style={{ fontSize: '1.5rem', marginBottom: '0' }}>Agent Hub</h2>
         </div>
         <nav className="sidebar-nav">
-          <Link href="/dashboard" className="nav-item">Profile & Goals</Link>
-          <Link href="/dashboard/jobs" className="nav-item">All Jobs</Link>
-          <Link href="/dashboard/companies" className="nav-item">Company Tracking</Link>
-          <Link href="/dashboard/linkedin" className="nav-item">LinkedIn Tracking</Link>
-          <Link href="/dashboard/matches" className="nav-item">Job Matches</Link>
+          <Link href="/dashboard" className={navClassName('/dashboard')}>Profile & Goals</Link>
+          <Link href="/dashboard/jobs" className={navClassName('/dashboard/jobs')}>All Jobs</Link>
+          <Link href="/dashboard/companies" className={navClassName('/dashboard/companies')}>Company Tracking</Link>
+          <Link href="/dashboard/linkedin" className={navClassName('/dashboard/linkedin')}>LinkedIn Tracking</Link>
+          <Link href="/dashboard/matches" className={navClassName('/dashboard/matches')}>Job Matches</Link>
+          <Link href="/dashboard/applications" className={navClassName('/dashboard/applications')}>Applications</Link>
         </nav>
         <button
           className="btn btn-secondary"

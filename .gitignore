@@ -1,4 +1,11 @@
 .env
+.venv/
+.private/
+artifacts/
+playwright/.auth/
+agent/.pytest_cache/
+agent/**/__pycache__/
+supabase/.temp/
 whitelist_manager.ipynb
 node_modules
 companies.csv
